@@ -1,0 +1,1 @@
+"""Intentionally broken service used by the NightZero seeded incident."""
