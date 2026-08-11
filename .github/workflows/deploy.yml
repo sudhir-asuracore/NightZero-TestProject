@@ -43,7 +43,7 @@ jobs:
         with:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
-          image: ${{ env.REGION }}-docker.pkg.dev/${env.PROJECT_ID}/nightzero/${env.SERVICE_NAME}:${GITHUB_SHA}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/nightzero/${{ env.SERVICE_NAME }}:${{ github.sha }}
 
       - name: Trigger Checkout to verify (and fire error if bug is present)
         run: |
