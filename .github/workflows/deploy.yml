@@ -48,3 +48,10 @@ jobs:
       - name: Trigger Checkout to verify (and fire error if bug is present)
         run: |
           curl -X POST ${{ steps.deploy.outputs.url }}/checkout -H "Content-Type: application/json" -d '{"cents": 1234}'
+
+      - name: Notify NightZero Deployment Completed
+        if: success()
+        run: |
+          curl -s -X POST https://nightzero-agent-164161200079.us-central1.run.app/api/v1/webhooks/deployment \
+            -H "Content-Type: application/json" \
+            -d "{\"repository\": \"${{ github.repository }}\", \"commit_sha\": \"${{ github.sha }}\", \"service\": \"${{ env.SERVICE_NAME }}\"}" || true
