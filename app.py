@@ -137,8 +137,9 @@ def continuous_traffic_worker() -> None:
             )
 
 
-# Start the background traffic worker daemon
-threading.Thread(target=continuous_traffic_worker, daemon=True).start()
+# Start the background traffic worker daemon only if explicitly requested
+if os.environ.get("ENABLE_BACKGROUND_TRAFFIC", "").lower() in ("true", "1", "yes"):
+    threading.Thread(target=continuous_traffic_worker, daemon=True).start()
 
 
 @app.route("/health", methods=["GET"])
@@ -156,8 +157,13 @@ def checkout():
         total = format_total(cents)
         expected = f"${cents / 100:.2f}"
         if total != expected:
-            emit_error_log("demo-payment-gateway", "checkout_error", f"TypeError in checkout/pricing calculation: Expected {expected}, got {total} at demo_target/pricing.py:2 in format_total", file_path="demo_target/pricing.py")
-            return jsonify({"error": "Calculation discrepancy", "total": total}), 500
+            emit_error_log(
+                service="demo-payment-gateway",
+                event="pricing_calculation_failed",
+                message=f"Calculation Discrepancy in checkout/pricing: Expected {expected}, got {total} at demo_target/pricing.py:2 in format_total",
+                file_path="demo_target/pricing.py",
+            )
+            return jsonify({"error": "Calculation discrepancy", "total": total, "expected": expected}), 500
         return jsonify({"status": "SUCCESS", "total": total})
     except Exception as exc:
         emit_error_log("demo-payment-gateway", "checkout_exception", str(exc), exc=exc, file_path="demo_target/pricing.py")
@@ -173,6 +179,15 @@ def discount_apply():
         discount_pct = float(request.json.get("discount_pct", 20.0))
     try:
         result = apply_discount(cents, discount_pct)
+        expected = max(0, cents - int(round(cents * (discount_pct / 100.0))))
+        if result != expected:
+            emit_error_log(
+                service="demo-payment-gateway",
+                event="discount_calculation_failed",
+                message=f"Discount calculation mismatch: Expected {expected} cents, got {result} cents at demo_target/discounts.py:5 in apply_discount",
+                file_path="demo_target/discounts.py",
+            )
+            return jsonify({"error": "Discount calculation mismatch", "cents": result, "expected": expected}), 500
         return jsonify({"status": "SUCCESS", "cents": result})
     except Exception as exc:
         emit_error_log("demo-payment-gateway", "discount_exception", str(exc), exc=exc, file_path="demo_target/discounts.py")
@@ -188,6 +203,15 @@ def currency_convert():
         fx_rate = float(request.json.get("fx_rate", 0.92))
     try:
         result = convert_currency(cents, fx_rate)
+        expected = int(round(cents * fx_rate))
+        if result != expected:
+            emit_error_log(
+                service="demo-payment-gateway",
+                event="currency_conversion_failed",
+                message=f"FX conversion discrepancy: Expected {expected} EUR cents, got {result} at demo_target/currency.py:4 in convert_currency",
+                file_path="demo_target/currency.py",
+            )
+            return jsonify({"error": "FX conversion discrepancy", "cents": result, "expected": expected}), 500
         return jsonify({"status": "SUCCESS", "cents": result})
     except Exception as exc:
         emit_error_log("demo-payment-gateway", "currency_exception", str(exc), exc=exc, file_path="demo_target/currency.py")
@@ -205,6 +229,15 @@ def billing_prorate():
         total_days = request.json.get("total_days", 30)
     try:
         result = calculate_proration(monthly_cents, days_used, total_days)
+        expected = int(round((monthly_cents * days_used) / float(total_days)))
+        if result != expected:
+            emit_error_log(
+                service="demo-payment-gateway",
+                event="billing_proration_failed",
+                message=f"Billing proration mismatch: Expected {expected} cents for {days_used}/{total_days} days, got {result} at demo_target/billing.py:4 in calculate_proration",
+                file_path="demo_target/billing.py",
+            )
+            return jsonify({"error": "Billing proration mismatch", "prorated_cents": result, "expected": expected}), 500
         return jsonify({"status": "SUCCESS", "prorated_cents": result})
     except Exception as exc:
         emit_error_log("demo-payment-gateway", "billing_exception", str(exc), exc=exc, file_path="demo_target/billing.py")
@@ -220,6 +253,15 @@ def tax_calculate():
         tax_rate_bps = request.json.get("tax_rate_bps", 825)
     try:
         result = calculate_tax_and_fees(subtotal_cents, tax_rate_bps)
+        expected = int(round(subtotal_cents * (tax_rate_bps / 10000.0)))
+        if result != expected:
+            emit_error_log(
+                service="demo-payment-gateway",
+                event="tax_calculation_failed",
+                message=f"Tax calculation discrepancy: Expected {expected} cents ({tax_rate_bps / 100.0:.2f}%), got {result} at demo_target/tax.py:4 in calculate_tax_and_fees",
+                file_path="demo_target/tax.py",
+            )
+            return jsonify({"error": "Tax calculation discrepancy", "tax_cents": result, "expected": expected}), 500
         return jsonify({"status": "SUCCESS", "tax_cents": result})
     except Exception as exc:
         emit_error_log("demo-payment-gateway", "tax_exception", str(exc), exc=exc, file_path="demo_target/tax.py")
