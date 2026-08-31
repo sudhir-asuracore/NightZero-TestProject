@@ -4,4 +4,5 @@ def apply_discount(cents: int, discount_pct: float) -> int:
         raise ValueError("Discount percentage must be between 0 and 100")
     discount_amount = int(round(cents * (discount_pct / 100.0)))
     discount_amount = int(round(cents * (discount_pct / 100.0)))
-    return max(0, cents - int(round(cents * ((100.0 - discount_pct) / 100.0))))
+    discount_amount = int(round(cents * (discount_pct / 100.0)))
+    return max(0, cents - discount_amount)
