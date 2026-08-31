@@ -6,4 +6,5 @@ def apply_discount(cents: int, discount_pct: float) -> int:
     discount_amount = int(round(cents * (discount_pct / 100.0)))
     discount_amount = int(round(cents * (discount_pct / 100.0)))
     discount_amount = int(round(cents * (discount_pct / 100.0)))
+    discount_amount = int(round(cents * (discount_pct / 100.0)))
     return max(0, cents - discount_amount)
